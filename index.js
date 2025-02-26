@@ -1,17 +1,64 @@
 const express = require('express');
+const cors = require('cors');
+const SneaksAPI = require('sneaks-api');
 const app = express();
-const mongoose = require('mongoose');
-require('./routes/sneaks.routes.js')(app);
-require('dotenv').config();
-const SneaksAPI = require('./controllers/sneaks.controllers.js');
+const sneaks = new SneaksAPI();
 
-var port = process.env.PORT || 4000;
-mongoose.Promise = global.Promise;
+const filterKeywords = ['fleece', 'jacket', 'backpack', 'hood', 'head','sunglasses', 'glasses', 'bag', 'Louis Vuitton', 'Jersey']; 
 
-/*app.listen(port, function () {
-  console.log(`Sneaks app listening on port `, port);
- });*/
+// Enable CORS
+app.use(cors());
+
+app.get('/api/popular-sneakers', (req, res) => {
+    sneaks.getMostPopular(12, (err, products) => {
+        if (err) {
+            return res.status(500).json({ error: err.message });
+        }
+
+        // Filter products to exclude those with names containing the keywords
+        const filteredProducts = products.filter(product => {
+            return !filterKeywords.some(keyword => 
+                product.shoeName.toLowerCase().includes(keyword.toLowerCase())
+            );
+        });
+
+        res.json(filteredProducts);
+    });
+});
+
+app.get('/api/search-sneakers', (req, res) => {
+    const searchQuery = req.query.q; // 'q' is the query parameter from the search bar
+    console.log(`Search Query: ${searchQuery}`);
+    
+    sneaks.getProducts(searchQuery, 30, (err, products) => {
+        if (err) {
+            console.error('Error fetching products:', err);
+            return res.status(500).json({ error: err.message });
+        }
+
+        // Filter products to exclude those with names containing the keywords
+        const filteredProducts = products.filter(product => {
+            return !filterKeywords.some(keyword => 
+                product.shoeName.toLowerCase().includes(keyword.toLowerCase())
+            );
+        });
+
+        res.json(filteredProducts);
+    });
+});
 
 
-module.exports = app;
-module.exports = SneaksAPI;
+app.get('/api/product-prices/:productId', (req, res) => {
+    const productId = req.params.productId;
+    sneaks.getProductPrices(productId, (err, product) => {
+        if (err) {
+            return res.status(500).json({ error: err.message });
+        }
+        res.json(product);
+    });
+});
+
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => {
+    console.log(`Server is running on port ${PORT}`);
+});     
